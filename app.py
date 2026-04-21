@@ -6,9 +6,12 @@ from analyzer.core import run
 
 app = Flask(__name__)
 
+from flask import jsonify
+
 @app.route("/")
 def home():
-    return "Clinic Analyzer Running"
+    result = run("京都駅")
+    return jsonify(result)
 
 def background_job():
     while True:
