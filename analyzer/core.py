@@ -219,14 +219,8 @@ def run(area: str):
     for r in raw:
         name = r["name"]
 
-        site_url = fetch_official_site(name)
-        hp_text = ""
-
-        if site_url:
-            res = safe_get(site_url)
-            if res:
-                hp_text = res.text[:5000]
-
+        site_url = None
+hp_text = ""
         result = infer_specialty_v2(name, r["tags"], hp_text)
 
         d = haversine_m(lat, lon, r["lat"], r["lon"])
