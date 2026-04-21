@@ -1,5 +1,3 @@
-!pip install beautifulsoup4
-
 import requests
 import time
 import math
