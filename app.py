@@ -11,7 +11,16 @@ from flask import jsonify
 @app.route("/")
 def home():
     result = run("京都駅")
-    return jsonify(result)
+    from flask import Response
+import json
+
+@app.route("/")
+def home():
+    result = run("京都駅")
+    return Response(
+        json.dumps(result, ensure_ascii=False),
+        content_type="application/json; charset=utf-8"
+    )
 
 def background_job():
     while True:
