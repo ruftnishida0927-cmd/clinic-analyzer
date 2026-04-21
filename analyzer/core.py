@@ -341,11 +341,9 @@ def run(area: str):
             "distance_band": classify_distance_band(d),
         })
 
-    print("取得件数:", len(clinics))
 
     if not clinics:
         print("クリニック取得なし")
         return
 
-    for c in clinics[:10]:
-        print(c)
+    return clinics
