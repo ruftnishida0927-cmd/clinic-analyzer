@@ -2,7 +2,7 @@ from flask import Flask
 import threading
 import time
 
-# ====== ここに今のコード全部貼る ======
+from analyzer.core import run
 
 app = Flask(__name__)
 
@@ -12,7 +12,13 @@ def home():
 
 def background_job():
     while True:
-        run("京都駅")
+        try:
+            print("分析開始")
+            run("京都駅")
+            print("分析完了")
+        except Exception as e:
+            print("エラー:", e)
+
         time.sleep(3600)
 
 if __name__ == "__main__":
