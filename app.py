@@ -17,9 +17,11 @@ def safe_get(url, params=None, timeout=20):
     try:
         r = SESSION.get(url, params=params, headers=HEADERS, timeout=timeout)
         if r.status_code != 200:
+            print(f"HTTPエラー: {url}")
             return None
         return r
-    except:
+    except Exception as e:
+        print(f"取得失敗: {url}")
         return None
 
 # =========================
@@ -64,7 +66,7 @@ def fetch_osm(lat, lon, radius=2000):
     data = r.json()
 
     results = []
-    for e in data["elements"]:
+    for e in data.get("elements", []):
         tags = e.get("tags", {})
         name = tags.get("name", "")
 
@@ -72,7 +74,7 @@ def fetch_osm(lat, lon, radius=2000):
             continue
 
         # 除外
-        if any(x in name for x in ["整骨院", "整体", "鍼灸"]):
+        if any(x in name for x in ["整骨院", "整体", "鍼灸", "マッサージ"]):
             continue
 
         results.append({
@@ -87,18 +89,18 @@ def fetch_osm(lat, lon, radius=2000):
 # =========================
 # 距離
 # =========================
-def dist(lat1, lon1, lat2, lon2):
+def calc_distance(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
 
     a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return int(2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a)))
 
 # =========================
-# 公式サイト取得
+# 公式サイト取得（簡易）
 # =========================
-def get_site(name):
+def fetch_site(name):
     url = "https://html.duckduckgo.com/html/"
     r = safe_get(url, {"q": name + " クリニック"})
     if not r:
@@ -119,25 +121,27 @@ def get_site(name):
 def analyze_hp(url):
     r = safe_get(url)
     if not r:
-        return {}, 0
+        return {}, "fail"
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    text = soup.get_text()
-
-    score = {}
-    weight = 0
+    scores = {}
 
     def add(key, w):
-        score[key] = score.get(key, 0) + w
+        scores[key] = scores.get(key, 0) + w
 
-    # title
+    # title重視
     if soup.title:
-        t = soup.title.text
-        if "消化器" in t:
+        title = soup.title.text
+
+        if "消化器" in title:
             add("消化器内科", 3)
-        if "内視鏡" in t:
+        if "内視鏡" in title:
             add("内視鏡", 3)
+        if "循環器" in title:
+            add("循環器内科", 3)
+
+    text = soup.get_text()
 
     # 本文
     if "胃カメラ" in text or "大腸カメラ" in text:
@@ -146,107 +150,122 @@ def analyze_hp(url):
     if "糖尿病" in text:
         add("糖尿病内科", 2)
 
-    if "循環器" in text:
-        add("循環器内科", 2)
-
     if "呼吸器" in text:
         add("呼吸器内科", 2)
 
     if "発熱外来" in text or "風邪" in text:
         add("一般内科", 1)
 
-    return score, 1
+    return scores, "success"
 
 # =========================
 # 名前解析
 # =========================
 def analyze_name(name):
-    score = {}
+    scores = {}
 
     def add(k, w):
-        score[k] = score.get(k, 0) + w
+        scores[k] = scores.get(k, 0) + w
 
     if "内視鏡" in name:
-        add("内視鏡", 3)
-
+        add("内視鏡", 4)
     if "消化器" in name:
-        add("消化器内科", 3)
-
+        add("消化器内科", 4)
     if "循環器" in name:
-        add("循環器内科", 3)
-
+        add("循環器内科", 4)
     if "呼吸器" in name:
-        add("呼吸器内科", 3)
-
+        add("呼吸器内科", 4)
     if "糖尿病" in name:
-        add("糖尿病内科", 3)
+        add("糖尿病内科", 4)
 
-    return score
+    return scores
 
 # =========================
-# 判定
+# 判定（信頼度付き）
 # =========================
-def decide(scores):
+def decide_specialty(scores):
     if not scores:
-        return "不明", 0
+        return "不明", 0.0, "unknown"
 
     best = max(scores, key=scores.get)
     total = sum(scores.values())
 
-    conf = scores[best] / total if total > 0 else 0
+    confidence = scores[best] / total if total > 0 else 0
 
-    return best, round(conf, 2)
+    if confidence >= 0.75:
+        label = "high"
+    elif confidence >= 0.5:
+        label = "mid"
+    else:
+        label = "low"
+
+    return best, round(confidence, 2), label
 
 # =========================
-# メイン
+# メイン処理
 # =========================
 def run(area):
-    latlon = geocode(area)
-    if not latlon:
+    print(f"エリア: {area}")
+
+    geo = geocode(area)
+    if not geo:
         print("位置取得失敗")
         return
 
-    lat, lon = latlon
+    lat, lon = geo
 
-    data = fetch_osm(lat, lon)
+    raw = fetch_osm(lat, lon)
+    print(f"取得件数: {len(raw)}")
 
     results = []
 
-    for c in data:
-        name = c["name"]
+    for r in raw:
+        name = r["name"]
 
         name_score = analyze_name(name)
 
-        site = get_site(name)
+        site = fetch_site(name)
 
         hp_score = {}
+        hp_status = "no_site"
+
         if site:
-            hp_score, _ = analyze_hp(site)
+            hp_score, hp_status = analyze_hp(site)
             time.sleep(1)
 
         # スコア統合
         total = {}
+
         for d in [name_score, hp_score]:
             for k, v in d.items():
                 total[k] = total.get(k, 0) + v
 
-        main, conf = decide(total)
+        main, conf, conf_label = decide_specialty(total)
 
-        d = dist(lat, lon, c["lat"], c["lon"])
+        distance = calc_distance(lat, lon, r["lat"], r["lon"])
 
         results.append({
             "name": name,
             "main_axis": main,
             "confidence": conf,
-            "distance_m": int(d),
-            "site": site
+            "confidence_label": conf_label,
+            "distance_m": distance,
+            "site": site,
+            "hp_status": hp_status,
+            "raw_scores": str(total)
         })
 
     df = pd.DataFrame(results)
-    print(df.head())
 
-    df.to_csv("result.csv", index=False)
-    print("CSV出力完了")
+    print("\n=== 結果 ===")
+    print(df.head(10))
 
+    df.to_csv("result.csv", index=False, encoding="utf-8-sig")
+
+    print("\nCSV出力完了: result.csv")
+
+# =========================
 # 実行
-run("京都駅")
+# =========================
+if __name__ == "__main__":
+    run("京都駅")
