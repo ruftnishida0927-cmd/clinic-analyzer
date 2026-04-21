@@ -1,24 +1,17 @@
-from flask import Flask
+from flask import Flask, Response
 import threading
 import time
+import json
 
 from analyzer.core import run
 
 app = Flask(__name__)
 
-from flask import jsonify
-
-@app.route("/")
-def home():
-    result = run("京都駅")
-    from flask import Response
-import json
-
 @app.route("/")
 def home():
     result = run("京都駅")
     return Response(
-        json.dumps(result, ensure_ascii=False),
+        json.dumps(result, ensure_ascii=False, indent=2),
         content_type="application/json; charset=utf-8"
     )
 
