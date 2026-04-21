@@ -269,3 +269,6 @@ def run(area):
 # =========================
 if __name__ == "__main__":
     run("京都駅")
+
+    while True:
+        time.sleep(60)
