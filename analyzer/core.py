@@ -226,6 +226,7 @@ def run(area: str):
         print("処理中:", name)
 
         site_url = fetch_official_site(name)
+        print("URL:", site_url)
 
 hp_text = ""
 if site_url:
