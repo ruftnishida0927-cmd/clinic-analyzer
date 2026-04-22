@@ -214,28 +214,23 @@ def run(area: str):
     lat, lon = geocode_area(area)
     raw = fetch_osm(lat, lon)
 
-    # ▼ここに入れる
-    print("OSM件数:", len(raw))
-
     clinics = []
 
     for r in raw:
         name = r["name"]
 
-        # ▼ここにも入れる
         print("処理中:", name)
 
         site_url = fetch_official_site(name)
-        print("URL:", site_url)
 
-hp_text = ""
-if site_url:
-    try:
-        res = safe_get(site_url, timeout=10)
-        if res:
-            hp_text = res.text[:3000]
-    except Exception as e:
-        print("HP取得エラー:", name, e)
+        hp_text = ""
+        if site_url:
+            try:
+                res = safe_get(site_url, timeout=10)
+                if res:
+                    hp_text = res.text[:3000]
+            except:
+                pass
 
         result = infer_specialty_v2(name, r["tags"], hp_text)
 
@@ -252,7 +247,6 @@ if site_url:
             "distance_band": classify_distance_band(d)
         })
 
-    # ▼最後にも入れる
     print("最終件数:", len(clinics))
 
     return clinics
