@@ -214,10 +214,16 @@ def run(area: str):
     lat, lon = geocode_area(area)
     raw = fetch_osm(lat, lon)
 
+    # ▼ここに入れる
+    print("OSM件数:", len(raw))
+
     clinics = []
 
     for r in raw:
         name = r["name"]
+
+        # ▼ここにも入れる
+        print("処理中:", name)
 
         site_url = None
         hp_text = ""
@@ -236,5 +242,8 @@ def run(area: str):
             "distance_m": round(d, 1),
             "distance_band": classify_distance_band(d)
         })
+
+    # ▼最後にも入れる
+    print("最終件数:", len(clinics))
 
     return clinics
