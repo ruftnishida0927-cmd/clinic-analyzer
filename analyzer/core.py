@@ -220,7 +220,8 @@ def run(area: str):
         name = r["name"]
 
         site_url = None
-hp_text = ""
+        hp_text = ""
+
         result = infer_specialty_v2(name, r["tags"], hp_text)
 
         d = haversine_m(lat, lon, r["lat"], r["lon"])
