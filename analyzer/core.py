@@ -225,8 +225,16 @@ def run(area: str):
         # ▼ここにも入れる
         print("処理中:", name)
 
-        site_url = None
-        hp_text = ""
+        site_url = fetch_official_site(name)
+
+hp_text = ""
+if site_url:
+    try:
+        res = safe_get(site_url, timeout=10)
+        if res:
+            hp_text = res.text[:3000]
+    except Exception as e:
+        print("HP取得エラー:", name, e)
 
         result = infer_specialty_v2(name, r["tags"], hp_text)
 
